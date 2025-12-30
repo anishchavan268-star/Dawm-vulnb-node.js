@@ -44,7 +44,7 @@ git clone https://github.com/yourusername/dawm-vulnerable-node-js-app.git
 
 2. Navigate to the project directory:
 ```bash
-cd dawm-vulnerable-node-js-app
+cd Dawm-vulnb-node.js
 ```
 
 3. Install dependencies:
@@ -126,5 +126,6 @@ Contributions to improve the educational value are welcome! Please follow these 
 5. Submit a pull request
 
 ## License
+
 
 This project is educational and intended for learning purposes only. Use responsibly in controlled environments.
