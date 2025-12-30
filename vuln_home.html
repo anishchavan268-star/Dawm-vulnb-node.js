@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vulnerable Home</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="welcome"></h1>
+            <button onclick="logout()" class="btn logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+        
+        <!-- Search Feature - VULNERABLE TO XSS -->
+        <div class="search-section">
+            <h2>Plant Store</h2>
+            <div class="input-group">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search for plants..." onkeyup="searchPlants()">
+            </div>
+            <div id="searchResults" class="search-results">
+                <p>Enter a search term to find plants</p>
+            </div>
+        </div>
+        
+        <div class="content">
+            <h2>Welcome to Your Dashboard</h2>
+            <p>You have successfully logged in to the application.</p>
+            <div class="card">
+                <h3><i class="fas fa-user-circle"></i> User Profile</h3>
+                <p>This is a sample dashboard page. You can add more content here as needed.</p>
+            </div>
+            <div class="card">
+                <h3><i class="fas fa-cog"></i> Settings</h3>
+                <p>Configure your account settings and preferences.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const user = localStorage.getItem("user");
+        if (!user) {
+            window.location.href = "index.html";
+        }
+        document.getElementById("welcome").innerHTML =
+            '<i class="fas fa-hand-wave"></i> Welcome, ' + user + '!';
+        
+        function logout() {
+            localStorage.removeItem("user");
+            window.location.href = "index.html";
+        }
+        
+        function searchPlants() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                    
+            // VULNERABLE CODE: Directly inserting user input without sanitization
+            // This creates a reflected XSS vulnerability
+            const resultsDiv = document.getElementById('searchResults');
+                    
+            // Sample plant names
+            const plants = [
+                "Rose", "Tulip", "Sunflower", "Lily", "Orchid", 
+                "Daisy", "Marigold", "Carnation", "Iris", "Peony",
+                "Cherry Blossom", "Hydrangea", "Lavender", "Bamboo", "Fern",
+                "Cactus", "Succulent", "Palm Tree", "Maple", "Oak"
+            ];
+                    
+            if (searchTerm) {
+                // Filter plants based on search term
+                const filteredPlants = plants.filter(plant => 
+                    plant.toLowerCase().includes(searchTerm)
+                );
+                        
+                if (filteredPlants.length > 0) {
+                    // This is where the XSS vulnerability exists - direct insertion of user input
+                    let resultsHTML = '<h3>Search results for: <strong>' + searchTerm + '</strong></h3>';
+                    resultsHTML += '<div class="plant-list">';
+                            
+                    filteredPlants.forEach(plant => {
+                        resultsHTML += '<div class="plant-item">' +
+                                  '<h4>' + plant + '</h4>' +
+                                  '<p>Price: $' + (Math.floor(Math.random() * 20) + 5) + '</p>' +
+                                  '<button onclick="alert(\'Added ' + plant + ' to cart!\')">Add to Cart</button>' +
+                                  '</div>';
+                    });
+                            
+                    resultsHTML += '</div>';
+                    resultsDiv.innerHTML = resultsHTML;
+                            
+                    // Execute scripts that may have been inserted
+                    executeScripts(resultsDiv);
+                } else {
+                    resultsHTML = '<p>No plants found matching "' + searchTerm + '"</p>';
+                    resultsDiv.innerHTML = resultsHTML;
+                            
+                    // Execute scripts for the no-results case
+                    executeScripts(resultsDiv);
+                }
+            } else {
+                resultsDiv.innerHTML = '<p>Enter a search term to find plants</p>';
+            }
+        }
+                
+        function executeScripts(container) {
+            // Find all script tags in the container
+            var scripts = container.getElementsByTagName('script');
+                    
+            // Execute each script tag
+            for(var i = 0; i < scripts.length; i++) {
+                var script = scripts[i];
+                if(script.src) {
+                    // External script
+                    var newScript = document.createElement('script');
+                    newScript.src = script.src;
+                    if(script.type) newScript.type = script.type;
+                    if(script.async) newScript.async = script.async;
+                    document.head.appendChild(newScript);
+                } else {
+                    // Inline script
+                    eval(script.innerHTML);
+                }
+            }
+        }
+        
+        // Allow search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchPlants();
+            }
+        });
+    </script>
+</body>
+</html>

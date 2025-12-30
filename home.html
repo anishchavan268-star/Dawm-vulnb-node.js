@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="welcome"></h1>
+            <button onclick="logout()" class="btn logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+        
+        <!-- Search Feature - SECURE VERSION -->
+        <div class="search-section">
+            <h2>Plant Store</h2>
+            <div class="input-group">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search for plants..." onkeyup="searchPlants()">
+            </div>
+            <div id="searchResults" class="search-results">
+                <p>Enter a search term to find plants</p>
+            </div>
+        </div>
+        
+        <div class="content">
+            <h2>Welcome to Your Dashboard</h2>
+            <p>You have successfully logged in to the application.</p>
+            <div class="card">
+                <h3><i class="fas fa-user-circle"></i> User Profile</h3>
+                <p>This is a sample dashboard page. You can add more content here as needed.</p>
+            </div>
+            <div class="card">
+                <h3><i class="fas fa-cog"></i> Settings</h3>
+                <p>Configure your account settings and preferences.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const user = localStorage.getItem("user");
+        if (!user) {
+            window.location.href = "index.html";
+        }
+        
+        // Secure: Use textContent to prevent XSS when displaying user name
+        const welcomeElement = document.getElementById("welcome");
+        const welcomeText = document.createTextNode("Welcome, " + user + "!");
+        
+        // Create the icon element
+        const iconElement = document.createElement("i");
+        iconElement.className = "fas fa-hand-wave";
+        
+        // Add space between icon and text
+        welcomeElement.appendChild(iconElement);
+        welcomeElement.appendChild(document.createTextNode(" "));
+        welcomeElement.appendChild(welcomeText);
+        
+        function logout() {
+            localStorage.removeItem("user");
+            window.location.href = "index.html";
+        }
+        
+        function searchPlants() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                    
+            // SECURE CODE: Sanitize user input to prevent XSS
+            const sanitizedTerm = sanitizeInput(searchTerm);
+            const resultsDiv = document.getElementById('searchResults');
+                    
+            // Sample plant names
+            const plants = [
+                "Rose", "Tulip", "Sunflower", "Lily", "Orchid", 
+                "Daisy", "Marigold", "Carnation", "Iris", "Peony",
+                "Cherry Blossom", "Hydrangea", "Lavender", "Bamboo", "Fern",
+                "Cactus", "Succulent", "Palm Tree", "Maple", "Oak"
+            ];
+                    
+            if (searchTerm) {
+                // Filter plants based on search term
+                const filteredPlants = plants.filter(plant => 
+                    plant.toLowerCase().includes(searchTerm)
+                );
+                        
+                if (filteredPlants.length > 0) {
+                    // Create results container
+                    resultsDiv.innerHTML = '';
+                            
+                    // Create heading with sanitized term
+                    const heading = document.createElement('h3');
+                    heading.textContent = 'Search results for: ';
+                            
+                    const strong = document.createElement('strong');
+                    strong.textContent = sanitizedTerm;
+                    heading.appendChild(strong);
+                    resultsDiv.appendChild(heading);
+                            
+                    // Create plant list container
+                    const plantList = document.createElement('div');
+                    plantList.className = 'plant-list';
+                            
+                    filteredPlants.forEach(plant => {
+                        const plantItem = document.createElement('div');
+                        plantItem.className = 'plant-item';
+                                
+                        const plantName = document.createElement('h4');
+                        plantName.textContent = plant;
+                                
+                        const plantPrice = document.createElement('p');
+                        plantPrice.textContent = 'Price: $' + (Math.floor(Math.random() * 20) + 5);
+                                
+                        const addToCartBtn = document.createElement('button');
+                        addToCartBtn.className = 'btn';
+                        addToCartBtn.textContent = 'Add to Cart';
+                                
+                        // Safely attach event handler
+                        addToCartBtn.onclick = function() {
+                            alert('Added ' + plant + ' to cart!');
+                        };
+                                
+                        plantItem.appendChild(plantName);
+                        plantItem.appendChild(plantPrice);
+                        plantItem.appendChild(addToCartBtn);
+                        plantList.appendChild(plantItem);
+                    });
+                            
+                    resultsDiv.appendChild(plantList);
+                } else {
+                    // Create no-results message with sanitized term
+                    const noResultsPara = document.createElement('p');
+                    noResultsPara.textContent = 'No plants found matching "' + sanitizedTerm + '"';
+                    resultsDiv.innerHTML = '';
+                    resultsDiv.appendChild(noResultsPara);
+                }
+            } else {
+                // Create initial message with textContent to prevent XSS
+                const initialPara = document.createElement('p');
+                initialPara.textContent = 'Enter a search term to find plants';
+                resultsDiv.innerHTML = '';
+                resultsDiv.appendChild(initialPara);
+            }
+        }
+                
+        function sanitizeInput(input) {
+            // Basic HTML sanitization
+            const div = document.createElement('div');
+            div.textContent = input;
+            return div.textContent || div.innerText || '';
+        }
+        
+        // Allow search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchPlants();
+            }
+        });
+    </script>
+</body>
+</html>
