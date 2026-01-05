@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vulnerable Home</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="welcome"></h1>
+            <button onclick="logout()" class="btn logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+        
+        <!-- Search Feature - VULNERABLE TO XSS -->
+        <div class="search-section">
+            <h2>Bank</h2>
+            <div class="input-group">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search" onkeyup="searchPlants()">
+            </div>
+            <div id="searchResults" class="search-results">
+                <p>Enter a search term </p>
+            </div>
+        </div>
+        
+        <div class="content">
+            <h2>Welcome to Your Dashboard</h2>
+            <p>You have successfully logged in to the application.</p>
+            
+            <!-- Banking System - Race Condition Vulnerable -->
+            <div class="card">
+                <h3><i class="fas fa-piggy-bank"></i> Banking System </h3>
+                <div id="banking-system">
+                    <div class="banking-controls">
+                        <div class="input-group">
+                            <label for="deposit-amount">Deposit Amount:</label>
+                            <input type="number" id="deposit-amount" placeholder="Enter amount to deposit" min="1">
+                            <button onclick="depositMoney()" class="btn">Deposit</button>
+                        </div>
+                        <div class="input-group">
+                            <label for="withdraw-amount">Withdraw Amount:</label>
+                            <input type="number" id="withdraw-amount" placeholder="Enter amount to withdraw" min="1">
+                            <button onclick="withdrawMoney()" class="btn">Withdraw</button>
+                           
+                        </div>
+                    </div>
+                    
+                    <div id="banking-message" class="message"></div>
+                    
+                    <div class="balance-display">
+                        <h4>Current Balance: <span id="current-balance">Loading...</span></h4>
+                    </div>
+                    
+                    <div class="transaction-history">
+                        <h4>Transaction History</h4>
+                        <div id="transaction-list">
+                            <p>Loading transactions...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3><i class="fas fa-user-circle"></i> User Profile</h3>
+                <p>This is a sample dashboard page. You can add more content here as needed.</p>
+            </div>
+            <div class="card">
+                <h3><i class="fas fa-cog"></i> Settings</h3>
+                <p>Configure your account settings and preferences.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const user = localStorage.getItem("user");
+        if (!user) {
+            window.location.href = "index.html";
+        }
+        document.getElementById("welcome").innerHTML =
+            '<i class="fas fa-hand-wave"></i> Welcome, ' + user + '!';
+        
+        function logout() {
+            localStorage.removeItem("user");
+            window.location.href = "index.html";
+        }
+        
+        function searchPlants() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                    
+            // VULNERABLE CODE: Directly inserting user input without sanitization
+            // This creates a reflected XSS vulnerability
+            const resultsDiv = document.getElementById('searchResults');
+                    
+            // Sample plant names
+            const plants = [
+                "Rose", "Tulip", "Sunflower", "Lily", "Orchid", 
+                "Daisy", "Marigold", "Carnation", "Iris", "Peony",
+                "Cherry Blossom", "Hydrangea", "Lavender", "Bamboo", "Fern",
+                "Cactus", "Succulent", "Palm Tree", "Maple", "Oak"
+            ];
+                    
+            if (searchTerm) {
+                // Filter plants based on search term
+                const filteredPlants = plants.filter(plant => 
+                    plant.toLowerCase().includes(searchTerm)
+                );
+                        
+                if (filteredPlants.length > 0) {
+                    // This is where the XSS vulnerability exists - direct insertion of user input
+                    let resultsHTML = '<h3>Search results for: <strong>' + searchTerm + '</strong></h3>';
+                    resultsHTML += '<div class="plant-list">';
+                            
+                    filteredPlants.forEach(plant => {
+                        resultsHTML += '<div class="plant-item">' +
+                                  '<h4>' + plant + '</h4>' +
+                                  '<p>Price: $' + (Math.floor(Math.random() * 20) + 5) + '</p>' +
+                                  '<button onclick="alert(\'Added ' + plant + ' to cart!\')">Add to Cart</button>' +
+                                  '</div>';
+                    });
+                            
+                    resultsHTML += '</div>';
+                    resultsDiv.innerHTML = resultsHTML;
+                            
+                    // Execute scripts that may have been inserted
+                    executeScripts(resultsDiv);
+                } else {
+                    resultsHTML = '<p>No plants found matching "' + searchTerm + '"</p>';
+                    resultsDiv.innerHTML = resultsHTML;
+                            
+                    // Execute scripts for the no-results case
+                    executeScripts(resultsDiv);
+                }
+            } else {
+                resultsDiv.innerHTML = '<p>Enter a search term to find plants</p>';
+            }
+        }
+                
+        function executeScripts(container) {
+            // Find all script tags in the container
+            var scripts = container.getElementsByTagName('script');
+                    
+            // Execute each script tag
+            for(var i = 0; i < scripts.length; i++) {
+                var script = scripts[i];
+                if(script.src) {
+                    // External script
+                    var newScript = document.createElement('script');
+                    newScript.src = script.src;
+                    if(script.type) newScript.type = script.type;
+                    if(script.async) newScript.async = script.async;
+                    document.head.appendChild(newScript);
+                } else {
+                    // Inline script
+                    eval(script.innerHTML);
+                }
+            }
+        }
+        
+        // Allow search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchPlants();
+            }
+        });
+        
+        // Banking system functions
+        let currentUserId = 1; // In a real app, this would come from the session
+        
+        // Load user balance and transaction history on page load
+        window.onload = function() {
+            loadBalance();
+            loadTransactions();
+        };
+        
+        function loadBalance() {
+            fetch(`/api/balance/${currentUserId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('current-balance').textContent = '$' + data.balance;
+            })
+            .catch(error => {
+                console.error('Error loading balance:', error);
+                document.getElementById('current-balance').textContent = 'Error loading';
+            });
+        }
+        
+        function loadTransactions() {
+            fetch(`/api/transactions/${currentUserId}`)
+            .then(response => response.json())
+            .then(data => {
+                const transactions = data.transactions;
+                
+                if (transactions && transactions.length > 0) {
+                    let transactionsHTML = '<ul>';
+                    transactions.forEach(transaction => {
+                        const typeClass = transaction.type === 'deposit' ? 'deposit' : 'withdrawal';
+                        const icon = transaction.type === 'deposit' ? 'fa-arrow-down' : 'fa-arrow-up';
+                        const timestamp = new Date(transaction.timestamp).toLocaleString();
+                        transactionsHTML += `
+                            <li class="${typeClass}">
+                                <i class="fas ${icon}"></i>
+                                <span class="amount">$${transaction.amount}</span>
+                                <span class="description">${transaction.description}</span>
+                                <span class="timestamp">${timestamp}</span>
+                            </li>`;
+                    });
+                    transactionsHTML += '</ul>';
+                    
+                    document.getElementById('transaction-list').innerHTML = transactionsHTML;
+                } else {
+                    document.getElementById('transaction-list').innerHTML = '<p>No transactions found</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading transactions:', error);
+                document.getElementById('transaction-list').innerHTML = '<p>Error loading transactions</p>';
+            });
+        }
+        
+        function depositMoney() {
+            const amount = parseFloat(document.getElementById('deposit-amount').value);
+            
+            if (!amount || amount <= 0) {
+                showMessage('Please enter a valid deposit amount', 'error');
+                return;
+            }
+            
+            fetch('/api/deposit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUserId, amount: amount })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage(`Successfully deposited $${amount}`, 'success');
+                    document.getElementById('deposit-amount').value = '';
+                    loadBalance();
+                    loadTransactions(); // Refresh transactions
+                } else {
+                    showMessage(`Deposit failed: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                showMessage(`Deposit error: ${error.message}`, 'error');
+            });
+        }
+        
+        function withdrawMoney() {
+            const amount = parseFloat(document.getElementById('withdraw-amount').value);
+            
+            if (!amount || amount <= 0) {
+                showMessage('Please enter a valid withdrawal amount', 'error');
+                return;
+            }
+            
+            fetch('/api/withdraw', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUserId, amount: amount })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage(`Successfully withdrew $${amount}`, 'success');
+                    document.getElementById('withdraw-amount').value = '';
+                    loadBalance();
+                    loadTransactions(); // Refresh transactions
+                } else {
+                    showMessage(`Withdrawal failed: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                showMessage(`Withdrawal error: ${error.message}`, 'error');
+            });
+        }
+        
+        // Race condition attack function - makes multiple concurrent withdrawal requests
+        function raceConditionAttack() {
+            const amount = parseFloat(document.getElementById('withdraw-amount').value);
+            
+            if (!amount || amount <= 0) {
+                showMessage('Please enter a withdrawal amount to race', 'error');
+                return;
+            }
+            
+            const numRequests = 5; // Number of concurrent requests
+            showMessage(`Making ${numRequests} concurrent withdrawal requests of $${amount}...`, 'info');
+            
+            // Create multiple concurrent requests
+            const requests = [];
+            for (let i = 0; i < numRequests; i++) {
+                requests.push(
+                    fetch('/api/withdraw', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: currentUserId, amount: amount })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log(`Withdrawal ${i+1} successful: $${data.amount}`);
+                        } else {
+                            console.log(`Withdrawal ${i+1} failed: ${data.error}`);
+                        }
+                    })
+                    .catch(error => {
+                        console.log(`Withdrawal ${i+1} error: ${error.message}`);
+                    })
+                );
+            }
+            
+            // Execute all requests concurrently
+            Promise.all(requests)
+            .then(() => {
+                showMessage(`Race condition attack completed! Check your balance.`, 'success');
+                loadBalance();
+                loadTransactions(); // Refresh transactions
+            });
+        }
+        
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('banking-message');
+            messageDiv.textContent = message;
+            messageDiv.className = `message ${type}`;
+            
+            // Clear message after 5 seconds
+            setTimeout(() => {
+                messageDiv.textContent = '';
+                messageDiv.className = 'message';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

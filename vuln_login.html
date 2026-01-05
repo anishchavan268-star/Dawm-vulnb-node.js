@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vulnerable Login</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2><i class="fas fa-exclamation-triangle"></i> Vulnerable Login</h2>
+            <p style="text-align: center; color: #e74c3c; margin-bottom: 20px;">
+                <strong>WARNING:</strong> This page is intentionally vulnerable to SQL injection for educational purposes.
+            </p>
+            
+            <form id="vuln-login-form">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="vulnUser" placeholder="Username" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="vulnPass" placeholder="Password" required>
+                </div>
+                <button type="button" onclick="vulnLogin()" class="btn">Login (Vulnerable)</button>
+            </form>
+            
+            <div id="vuln-message" class="message"></div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="goBack()" class="btn" style="background: #95a5a6;">Go Back to Secure Login</button>
+            </div>
+            
+            <!-- SSRF Demo Section -->
+            <div style="margin-top: 30px; padding: 20px; border: 1px solid #e74c3c; border-radius: 8px;">
+                <h3 style="color: #e74c3c; text-align: center;"><i class="fas fa-bug"></i> SSRF Demo</h3>
+                <p style="text-align: center; color: #666; margin-bottom: 15px;">Enter a URL to fetch from the server (for SSRF testing)</p>
+                <div class="input-group">
+                    <input type="text" id="ssrfUrl" placeholder="http://example.com" style="margin-bottom: 10px;">
+                    <button type="button" onclick="ssrfRequest()" class="btn" style="background: #e74c3c;">Make External Request</button>
+                </div>
+                <div id="ssrf-result" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; display: none;">
+                    <h4>Response:</h4>
+                    <pre id="ssrf-response" style="white-space: pre-wrap; word-break: break-word;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function vulnLogin() {
+            const username = document.getElementById('vulnUser').value;
+            const password = document.getElementById('vulnPass').value;
+            
+            // Check if this looks like a UNION query to use the special endpoint
+            if (username.toLowerCase().includes('union') || password.toLowerCase().includes('union')) {
+                // This is the vulnerable part - direct string concatenation
+                fetch('/vuln_login_union', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        localStorage.setItem("user", data.username);
+                        // If all_rows exists, display them in an alert for educational purposes
+                        if (data.all_rows) {
+                            let tableData = "Full table data:\n";
+                            data.all_rows.forEach((row, index) => {
+                                tableData += `Row ${index + 1}: ID=${row.id}, Username=${row.username}, Password=${row.password}\n`;
+                            });
+                            alert(tableData);
+                        }
+                        window.location.href = "vuln_home.html";
+                    } else {
+                        document.getElementById('vuln-message').innerHTML = data.message;
+                        document.getElementById('vuln-message').className = 'message show error';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('vuln-message').innerHTML = 'An error occurred. Please try again.';
+                    document.getElementById('vuln-message').className = 'message show error';
+                });
+            } else {
+                // This is the vulnerable part - direct string concatenation
+                fetch('/vuln_login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        localStorage.setItem("user", data.username);
+                        window.location.href = "vuln_home.html";
+                    } else {
+                        document.getElementById('vuln-message').innerHTML = data.message;
+                        document.getElementById('vuln-message').className = 'message show error';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('vuln-message').innerHTML = 'An error occurred. Please try again.';
+                    document.getElementById('vuln-message').className = 'message show error';
+                });
+            }
+        }
+        
+        function goBack() {
+            window.location.href = "index.html";
+        }
+        
+        function ssrfRequest() {
+            const url = document.getElementById('ssrfUrl').value;
+            
+            if (!url) {
+                alert('Please enter a URL to fetch');
+                return;
+            }
+            
+            fetch(`/fetch-external?url=${encodeURIComponent(url)}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('ssrf-result');
+                const responsePre = document.getElementById('ssrf-response');
+                
+                if (data.success) {
+                    responsePre.textContent = data.data;
+                    resultDiv.style.display = 'block';
+                } else {
+                    responsePre.textContent = 'Error: ' + data.error;
+                    resultDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                const resultDiv = document.getElementById('ssrf-result');
+                const responsePre = document.getElementById('ssrf-response');
+                responsePre.textContent = 'Error: ' + error.message;
+                resultDiv.style.display = 'block';
+            });
+        }
+    </script>
+</body>
+</html>
